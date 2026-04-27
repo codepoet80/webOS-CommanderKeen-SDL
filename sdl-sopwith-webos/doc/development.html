@@ -1,0 +1,166 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<!--
+
+----	(c) Copyright 2001-2023 by Lutz Sammer, Francois Beerten and Nehal Mistry
+
+----    This program is free software; you can redistribute it and/or modify
+----    it under the terms of the GNU General Public License as published by
+----    the Free Software Foundation; only version 2 of the License.
+----
+----    This program is distributed in the hope that it will be useful,
+----    but WITHOUT ANY WARRANTY; without even the implied warranty of
+----    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+----    GNU General Public License for more details.
+----
+----    You should have received a copy of the GNU General Public License
+----    along with this program; if not, write to the Free Software
+----    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+----    02111-1307, USA.
+-->
+    <title>Development for Bos Wars</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+</head>
+
+<body>
+
+<h1>Development for Bos Wars</h1>
+<hr>
+
+This file should give you some information to help with development of
+the project.<p>
+
+For most up to date information, it is highly recommended to check the
+information on the Bos Wars <a href="https://boswars.org">website</a>,
+including the page on <a href="https://boswars.org/development.shtml">development</a>.<p>
+
+
+<h2>IRC - Internet Relay Chat</h2>
+
+You can try to meet other Bos Wars developers and users on the
+<a href="https://libera.chat/">Libera.chat</a> IRC Network, in the
+<a href="irc://irc.libera.chat/boswars">#boswars</a> channel.
+
+<h2>Mailing list</h2>
+
+If you want to help with development, you should 
+<a href="http://archives.seul.org/bos/dev/">join</a> 
+the bos-dev mailing list.
+
+<h2>Bugs and tasks</h2>
+
+You can find <a
+href="http://savannah.nongnu.org/bugs/?group=stratagus-bos">known bugs</a>
+ on the <a
+href="http://boswars.org">project pages
+for Bos Wars</a>.<p>
+
+Before starting work on a bug or task, please ask on the mailing list or in the 
+IRC channel whether anybody else is already working on it.
+
+<h2>Building Bos Wars</h2>
+
+<h3>Installing the Git client</h3>
+
+If you want to help develop, you should use Git. 
+The online <a href="https://git-scm.com/doc">Git documentation</a> will
+help you master Git.
+
+<h3>Getting Bos Wars from Git</h3>
+
+The <a href="https://codeberg.org/boswars">Bos Wars project</a> has the following main repositories:
+
+<ul>
+    <li>boswars - The Bos Wars source code<p>
+	The source code for the whole game including the engine.
+    The source is licenced under the GNU General Public License.
+	<b>This contains the sources needed for development.</b>
+
+    <li>website.bos - The Bos Wars Website<p>
+	The website is stored in git for easy updating and version management
+	by multiple people.  This module is not needed unless you plan to update
+	the website.
+
+    <li>materials.bos - Bos Wars assets<p>
+	Sources of large or difficult to generate Boswars assets like graphics
+    and sounds.
+
+</ul>
+
+
+<h3>Getting Bos Wars without Git</h3>
+
+Only releases are made outside of Git.  If you wish to be involved with
+development, you should obtain the sources via Git.
+Git usually remains quite stable and is easier
+for you to keep up to date. Release versions of Bos Wars are available 
+<a href="http://www.boswars.org/download.shtml">here</a>.
+
+<h3>Building Bos Wars</h3>
+
+You can find instructions for compiling Bos Wars at 
+<a href="install.html">install.html</a>.<br>
+Since you already have a copy of the source, you may skip 
+ahead to step 2.
+
+<h2>Source code documentation</h2>
+
+The engine has tagged source documentation.<p>
+
+You need either <a href="http://www.doxygen.org">DoxyGen</a> or 
+<a href="http://docpp.sourceforge.net/">DOC++</a> 
+to generate source code documentation.
+
+<h3>Tags used in source code</h3>
+
+We use the doc++ tags:<p>
+
+Multi line source code documentation:<p>
+/** ... */<p>
+
+Single line source code documentation:<p>
+/// ... <p>
+
+Start grouping:<p>
+//@{ or /*@{*/<p>
+
+End grouping:<p>
+//@} or /*@}*/<p>
+
+
+<ul>
+    <li>@name
+    <br>Name of file or group.
+    <li>@param
+    <br>Describes function/macro parameter
+    <li>@return
+    <br>Describes function return
+    <li>@see
+    <br>Links to other section
+</ul><p>
+
+Please read the doxygen/doc++ documentation.
+
+<h2>Sending a patch</h2>
+
+Once you have completed some work, you will probably want it to be 
+included in the main Bos Wars source.<p>
+
+You can create a pull request on the
+<a href="https://codeberg.org/boswars/boswars">Bos Wars Codeberg project page</a>.
+<p>
+
+Alternatively, you can create a patch with these steps:<p>
+<ul>
+    <li>git diff &gt; your-nickname.diff
+    <li>upload 'your-nickname.diff' to the 
+    <a href="http://savannah.nongnu.org/patch/?group=stratagus-bos">patch tracker</a>.
+</ul>
+
+<hr>
+(C) Copyright 1998-2023 by The <a href="http://www.boswars.org">Bos Wars</a> Project 
+under the <a href="gpl.html">GNU General Public License</a>.<br>
+All trademarks and copyrights on this page are owned by their respective owners.<br>
+</body>
+</html>

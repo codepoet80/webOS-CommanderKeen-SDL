@@ -1,0 +1,10 @@
+{
+    "id": "com.boswars.game",
+    "version": "2.8.0",
+    "vendor": "Bos Wars",
+    "type": "pdk",
+    "main": "/media/cryptofs/apps/usr/palm/applications/com.boswars.game/boswars",
+    "title": "Bos Wars",
+    "icon": "icon.png",
+    "requiredMemory": 128
+}

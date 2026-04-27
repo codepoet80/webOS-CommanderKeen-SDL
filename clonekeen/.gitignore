@@ -1,0 +1,71 @@
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+# Visual Studio
+*.suo
+*.opensdf
+*.sdf
+*.opendb
+.vs
+*.user
+
+# Logs
+*.log
+stdout.txt
+
+# Commander Keen binaries
+*.ck1
+*.ck2
+*.ck3
+*.tga
+VENDOR.DOC
+ORDER.FRM
+ep1attr.dat
+ep2attr.dat
+ep3attr.dat
+ep1demo1.dat
+ep1demo2.dat
+ep1demo3.dat
+strings.dat
+flags.ini
+palette.ini
+keen.conf
+keen
+
+# Visual Studio build directory
+bin/
+obj/
+
+# NuGet packages
+packages/
+
+

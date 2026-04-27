@@ -1,0 +1,18 @@
+# Build artifacts
+*.o
+*.a
+*.so
+fbuild/
+*.pyc
+__pycache__/
+
+# IDE
+.vscode/
+*.swp
+*~
+
+# Package artifacts
+*.ipk
+webos-pkg/usr/
+webos-pkg/*.tar.gz
+webos-pkg/debian-binary

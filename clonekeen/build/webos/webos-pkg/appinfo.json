@@ -1,0 +1,10 @@
+{
+    "id": "com.cmdrkeen.game",
+    "version": "1.0.0",
+    "vendor": "CloneKeen",
+    "type": "pdk",
+    "main": "clonekeen",
+    "title": "Commander Keen",
+    "icon": "icon.png",
+    "requiredMemory": 64
+}

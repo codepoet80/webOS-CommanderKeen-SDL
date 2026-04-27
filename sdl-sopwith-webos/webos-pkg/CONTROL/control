@@ -1,0 +1,7 @@
+Package: com.boswars.game
+Version: 2.8.0
+Section: games
+Architecture: armv7
+Maintainer: BosWars Team
+Description: Bos Wars - Futuristic Real Time Strategy
+Homepage: http://www.boswars.org
