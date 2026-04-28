@@ -10,13 +10,18 @@ VERSION="1.0.0"
 APPDIR="$PKGDIR/usr/palm/applications/$APPID"
 OUTFILE="${APPID}_${VERSION}_armv7.ipk"
 BINARY="fbuild/webos/clonekeen"
-GAMEDATA="../../bin"        # relative to build/webos/
-GAMEDATA2="../../data"      # original episode data (KEEN1/)
+GAMEDATA="../../gamedata-extracted"   # extracted from Releases/Linux/clonekeen-linux.zip
 
 echo "=== CloneKeen webOS packaging ==="
 
 if [ ! -f "$BINARY" ]; then
     echo "ERROR: Binary not found at $BINARY — run build-webos.sh first"
+    exit 1
+fi
+
+if [ ! -d "$GAMEDATA" ]; then
+    echo "ERROR: Game data not found at $GAMEDATA"
+    echo "  Run: cd ../../ && unzip Releases/Linux/clonekeen-linux.zip -d gamedata-extracted/ -x keen"
     exit 1
 fi
 
@@ -27,28 +32,19 @@ mkdir -p "$APPDIR"
 # Copy binary
 echo "Copying binary..."
 cp "$BINARY" "$APPDIR/"
-arm-none-linux-gnueabi-strip "$APPDIR/clonekeen" 2>/dev/null || true
+arm-linux-gnueabi-strip "$APPDIR/clonekeen" 2>/dev/null || true
 
 # Copy appinfo.json
 cp "$PKGDIR/appinfo.json" "$APPDIR/"
 
-# Copy game data files (bin/ directory: gfx, sound, config, demo files)
+# Copy all game data (data/, gfx/, custom/, *.ini, *.dat, *.conf, demo files)
 echo "Copying game data..."
 cp -r "$GAMEDATA/." "$APPDIR/"
 
-# Copy original episode data (EGAHEAD.CK1, etc.)
-if [ -d "$GAMEDATA2/GAMEDATA/KEEN1" ]; then
-    echo "Copying episode 1 data..."
-    mkdir -p "$APPDIR/GAMEDATA/KEEN1"
-    cp "$GAMEDATA2/GAMEDATA/KEEN1/"* "$APPDIR/GAMEDATA/KEEN1/"
-fi
-
-# Placeholder icon if none exists
-if [ ! -f "$APPDIR/icon.png" ]; then
-    echo "WARNING: No icon.png found — add one at build/webos/webos-pkg/icon.png"
-    # copy a small placeholder if available
-    [ -f "$PKGDIR/icon.png" ] && cp "$PKGDIR/icon.png" "$APPDIR/"
-fi
+# Copy icons from repo root
+echo "Copying icons..."
+cp "../../../icon.png" "$APPDIR/icon.png"
+[ -f "../../../icon-256.png" ] && cp "../../../icon-256.png" "$APPDIR/icon-256.png"
 
 # Build data.tar.gz
 echo "Creating data archive..."

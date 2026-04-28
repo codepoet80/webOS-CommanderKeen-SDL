@@ -5,12 +5,12 @@
 set -e
 
 # --- Paths (edit these for your environment) ---
-TOOLCHAIN_BIN="/home/stark/arm-2011.03/bin"
-PDK="/home/stark/HPwebOS/PDK"
+TOOLCHAIN_BIN="/home/jonwise/linaro-toolchain/bin"
+PDK="/opt/PalmPDK"
 
 export PATH="$TOOLCHAIN_BIN:/usr/bin:/bin:$PATH"
-CC=arm-none-linux-gnueabi-gcc
-CXX=arm-none-linux-gnueabi-g++
+CC=arm-linux-gnueabi-gcc
+CXX=arm-linux-gnueabi-g++
 
 SRC="../../src"
 BUILDDIR="fbuild/webos"

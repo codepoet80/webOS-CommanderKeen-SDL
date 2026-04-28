@@ -1,0 +1,11 @@
+# Build output
+clonekeen/build/webos/fbuild/
+clonekeen/build/webos/*.ipk
+
+# Packaging intermediates
+clonekeen/build/webos/webos-pkg/usr/
+clonekeen/build/webos/webos-pkg/*.tar.gz
+clonekeen/build/webos/webos-pkg/debian-binary
+
+# Extracted game data (not redistributable)
+clonekeen/gamedata-extracted/

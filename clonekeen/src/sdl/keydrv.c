@@ -273,7 +273,7 @@ char key_g=0, key_o=0, key_d=0;
 //  │            JUMP (Ctrl)           │  y < 192
 //  ├────────┬─────────────────┬───────┤
 //  │        │                 │       │
-//  │  LEFT  │  ENTER (menus)  │ RIGHT │  192 <= y <= 575
+//  │  LEFT  │   ESC (menu)    │ RIGHT │  192 <= y <= 575
 //  │        │                 │       │
 //  ├────────┴─────────────────┴───────┤
 //  │         FIRE/POGO (Alt)          │  y > 575
@@ -286,43 +286,90 @@ char key_g=0, key_o=0, key_d=0;
 #define WEBOS_FIRE_Y    575
 #define WEBOS_LEFT_X    300
 #define WEBOS_RIGHT_X   723
+#define WEBOS_SPLIT_X   512   // splits top/bottom zones: left=directional, right=action
 
-static int webos_touch_key = 0;
+// Minimum time (ms) a key stays active after the finger lifts.
+// This decouples touch timing from the render/logic timer rates so that even a
+// fast tap registers across at least one logic frame regardless of the
+// render-vs-logic timer phase relationship. 150ms matches the PCSX-ReARMed
+// webOS port which solved the same problem on this hardware.
+#define WEBOS_MIN_HOLD_MS 150
+
+static int      webos_touch_key     = 0;
+static int      webos_pending_up    = 0;
+static int      webos_pending_up_key = 0;
+static Uint32   webos_key_down_time = 0;  // SDL_GetTicks() when current key went down
+
+// Mirror a keytable key into sdl_keysdown (used by the menu system).
+// Zone → menu function:
+//   KESC  (center) = close/cancel
+//   KCTRL (top)    = navigate up
+//   KALT  (bottom) = navigate down
+//   KRIGHT (right) = confirm/select  (right arrow doubles as Enter in menus)
+static void webos_set_sdl_keysdown(int key, int state)
+{
+	switch (key) {
+		case KESC:
+			sdl_keysdown[SDLK_ESCAPE] = state;
+			break;
+		case KCTRL:
+			sdl_keysdown[SDLK_UP] = state;
+			break;
+		case KALT:
+			sdl_keysdown[SDLK_DOWN] = state;
+			break;
+		case KRIGHT:
+			sdl_keysdown[SDLK_RETURN] = state;
+			break;
+		default:
+			break;
+	}
+}
 
 static void webos_set_touch_key(int key, int state)
 {
-	if (webos_touch_key && webos_touch_key != key)
+	if (webos_touch_key && webos_touch_key != key) {
 		keytable[webos_touch_key] = 0;
+		webos_set_sdl_keysdown(webos_touch_key, 0);
+	}
 	webos_touch_key = key;
-	if (key)
+	if (key) {
 		keytable[key] = state;
+		webos_set_sdl_keysdown(key, state);
+		if (state)
+			webos_key_down_time = SDL_GetTicks();
+	}
 }
 
 static void webos_touch_down(int x, int y)
 {
 	int key;
 	if (y < WEBOS_JUMP_Y)
-		key = KCTRL;
+		// Top zone split: left = look/enter-door (KUP), right = jump (KCTRL)
+		key = (x < WEBOS_SPLIT_X) ? KUP : KCTRL;
 	else if (y > WEBOS_FIRE_Y)
-		key = KALT;
+		// Bottom zone split: left = duck (KDOWN), right = fire/pogo (KALT)
+		key = (x < WEBOS_SPLIT_X) ? KDOWN : KALT;
 	else if (x < WEBOS_LEFT_X)
 		key = KLEFT;
 	else if (x > WEBOS_RIGHT_X)
 		key = KRIGHT;
 	else
-		key = KENTER;
+		key = KESC;
 	webos_set_touch_key(key, 1);
 }
 
 static void webos_touch_up(void)
 {
-	webos_set_touch_key(webos_touch_key, 0);
+	// Schedule release but hold the key for at least WEBOS_MIN_HOLD_MS so that
+	// the logic timer sees the press regardless of render/logic phase alignment.
+	webos_pending_up = 1;
+	webos_pending_up_key = webos_touch_key;
 	webos_touch_key = 0;
 }
 
 static void webos_touch_move(int x, int y)
 {
-	// Update directional key if finger slides left/right in the mid zone
 	if (y >= WEBOS_JUMP_Y && y <= WEBOS_FIRE_Y)
 	{
 		if (x < WEBOS_LEFT_X)
@@ -338,6 +385,17 @@ void poll_events(void)
 {
 char newState;
 SDL_Event event;
+
+#ifdef __webos__
+	if (webos_pending_up &&
+	    SDL_GetTicks() - webos_key_down_time >= WEBOS_MIN_HOLD_MS)
+	{
+		keytable[webos_pending_up_key] = 0;
+		webos_set_sdl_keysdown(webos_pending_up_key, 0);
+		webos_pending_up = 0;
+		webos_pending_up_key = 0;
+	}
+#endif
 
 	while(SDL_PollEvent(&event))
 	{

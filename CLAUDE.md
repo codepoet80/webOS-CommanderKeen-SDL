@@ -10,18 +10,18 @@ Port Commander Keen (Vorticons trilogy, episodes 1–3) to the HP TouchPad runni
 
 | Directory | Contents |
 |---|---|
-| `clonekeen/` | CloneKeen — the SDL port of Keen Vorticons being ported to webOS. **This is the primary work.** See `clonekeen/CLAUDE.md` for full detail. |
-| `sdl-sopwith-webos/` | Sopwith (Bos Wars) — a working SDL game already ported to this exact device. Serves as the build and PDL init reference. |
-| `keen/` | Commander Keen in Keen Dreams — original Borland C source, included for reference only. |
+| `clonekeen/` | CloneKeen — the SDL port of Keen Vorticons ported to webOS. **Primary work.** See `clonekeen/CLAUDE.md` for full detail. |
+| `sdl-sopwith-webos/` | Bos Wars/Sopwith — a working OpenGL SDL game already ported to this device. Reference for build structure only; it uses OpenGL, CloneKeen does not. |
+| `keen/` | Commander Keen in Keen Dreams — original Borland C source, reference only. |
 
 ---
 
 ## Target Platform
 
 - **Device**: HP TouchPad (2011)
-- **OS**: webOS (Linux/ARM, kernel 2.6)
+- **OS**: webOS 3.0.5 (Linux/ARM, kernel 2.6.35)
 - **CPU**: Qualcomm Snapdragon APQ8060, dual-core Cortex-A8
-- **Screen**: 1024×768 IPS
+- **Screen**: 1024×768 IPS, landscape
 - **SDK**: HP webOS PDK (Palm Development Kit) — provides SDL 1.2, SDL_mixer, PDL (`libpdl.so`)
 
 ---
@@ -30,51 +30,31 @@ Port Commander Keen (Vorticons trilogy, episodes 1–3) to the HP TouchPad runni
 
 Cross-compilation from a Linux host:
 
-- **Compiler**: Linaro GCC 4.x for `arm-none-linux-gnueabi` (2011.03 vintage)
-  - Expected at `/home/stark/arm-2011.03/bin/` — update `TOOLCHAIN_BIN` in build scripts
-- **PDK**: HP webOS PDK
-  - Expected at `/home/stark/HPwebOS/PDK/`
+- **Compiler**: Linaro GCC 4.9.4 for `arm-linux-gnueabi`
+  - Expected at `/home/jonwise/linaro-toolchain/bin/` — update `TOOLCHAIN_BIN` in `build-webos.sh`
+  - Prefix: `arm-linux-gnueabi-gcc` (not `arm-none-linux-gnueabi-gcc`)
+- **PDK**: HP webOS PDK at `/opt/PalmPDK/`
   - Headers: `$PDK/include/`, `$PDK/include/SDL/`
   - ARM device libs: `$PDK/device/lib/` (`libSDL.so`, `libSDL_mixer.so`, `libpdl.so`)
 - **Key flags**: `-mcpu=cortex-a8 -mfpu=neon -mfloat-abi=softfp -D__webos__`
 
 ---
 
-## Build & Deploy (CloneKeen)
+## Build & Deploy
 
 ```bash
 cd clonekeen/build/webos
-nano build-webos.sh       # set TOOLCHAIN_BIN and PDK paths
-bash build-webos.sh       # cross-compile → produces binary
-bash package-webos.sh     # assemble IPK
+nano build-webos.sh       # set TOOLCHAIN_BIN and PDK paths for your system
+bash build-webos.sh       # cross-compile → fbuild/webos/clonekeen
+bash package-webos.sh     # assemble IPK → com.cmdrkeen.game_1.0.0_armv7.ipk
 
 # Deploy to device via novacom
-novacom put file:///media/internal/clonekeen.ipk < com.cmdrkeen.game_1.0.0_armv7.ipk
-novacom run file:///usr/bin/ipkg install /media/internal/clonekeen.ipk
+novacom put file:///media/internal/com.cmdrkeen.game_1.0.0_armv7.ipk < com.cmdrkeen.game_1.0.0_armv7.ipk
+novacom run file:///usr/bin/ipkg install /media/internal/com.cmdrkeen.game_1.0.0_armv7.ipk
 ```
-
-Output: `build/webos/com.cmdrkeen.game_1.0.0_armv7.ipk`
-
----
-
-## Reference: sopwith PDL Init Pattern
-
-The `sdl-sopwith-webos/` port is the proven template. Its PDL init in `engine/video/sdl.cpp`:
-
-```cpp
-#ifdef __webos__
-    PDL_Init(0);
-    PDL_LoadOGL(PDL_OGL_1_1);  // sopwith uses GL; clonekeen skips this
-#endif
-SDL_Init(...);
-```
-
-CloneKeen uses software rendering (SDL 1.2 surfaces only), so `PDL_LoadOGL` is omitted.
 
 ---
 
 ## Status
 
-Code changes to CloneKeen are complete. The build has not yet been compiled or tested on hardware — that requires a Linux host with the ARM toolchain and PDK installed.
-
-See `clonekeen/CLAUDE.md` for the full list of modified and created files, touch input layout, known limitations, and next steps.
+**Working on device.** Episodes 1–3 load and play. Touch controls functional. See `clonekeen/CLAUDE.md` for architecture details, known limitations, and next steps.

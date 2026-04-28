@@ -24,8 +24,38 @@ SDL_Surface *BlitSurface = NULL;
 #ifdef __webos__
 // webOS: off-screen surface at native 320x240; stretched to 1024x768 on flip
 static SDL_Surface *webos_game_surface = NULL;
-#define WEBOS_SCREEN_W 1024
-#define WEBOS_SCREEN_H 768
+#define WEBOS_SCREEN_W  1024
+#define WEBOS_SCREEN_H  768
+// Touch zone boundaries (must match keydrv.c)
+#define WEBOS_JUMP_Y    192
+#define WEBOS_FIRE_Y    575
+#define WEBOS_LEFT_X    300
+#define WEBOS_RIGHT_X   723
+
+static void webos_draw_control_overlay(void)
+{
+    SDL_Rect r;
+    Uint8 white = 15;  // EGA bright white
+    int lw = 3;
+
+    // Horizontal dividers
+    r.x = 0; r.y = WEBOS_JUMP_Y; r.w = WEBOS_SCREEN_W; r.h = lw;
+    SDL_FillRect(screen, &r, white);
+    r.x = 0; r.y = WEBOS_FIRE_Y; r.w = WEBOS_SCREEN_W; r.h = lw;
+    SDL_FillRect(screen, &r, white);
+
+    // Vertical dividers in mid zone: LEFT | MENU | RIGHT
+    r.x = WEBOS_LEFT_X;  r.y = WEBOS_JUMP_Y; r.w = lw; r.h = WEBOS_FIRE_Y - WEBOS_JUMP_Y;
+    SDL_FillRect(screen, &r, white);
+    r.x = WEBOS_RIGHT_X; r.y = WEBOS_JUMP_Y; r.w = lw; r.h = WEBOS_FIRE_Y - WEBOS_JUMP_Y;
+    SDL_FillRect(screen, &r, white);
+
+    // Vertical midpoint dividers in top and bottom zones: left=directional, right=action
+    r.x = WEBOS_SCREEN_W/2; r.y = 0;             r.w = lw; r.h = WEBOS_JUMP_Y;
+    SDL_FillRect(screen, &r, white);
+    r.x = WEBOS_SCREEN_W/2; r.y = WEBOS_FIRE_Y;  r.w = lw; r.h = WEBOS_SCREEN_H - WEBOS_FIRE_Y;
+    SDL_FillRect(screen, &r, white);
+}
 #endif
 
 // uncomment this line if you want to render the contents of
@@ -185,6 +215,7 @@ void VidDrv_flipbuffer()
 #ifdef __webos__
 	// Stretch 320x240 game surface to fill 1024x768 screen (exact 3.2x scale)
 	SDL_SoftStretch(webos_game_surface, NULL, screen, NULL);
+	webos_draw_control_overlay();
 #endif
 	SDL_Flip(screen);
 }
@@ -196,16 +227,16 @@ void setpixel(int x, int y, unsigned char c)
 SDL_Rect rect;
 	rect.x = x; rect.y = y;
 	rect.w = rect.h = 1;
-	SDL_FillRect(screen, &rect, c);
+	SDL_FillRect(BlitSurface, &rect, c);
 }
 unsigned char getpixel(int x, int y)
 {
 Uint8 *ubuff8;
 
 	if (x < 0 || y < 0 || x >= WINDOW_WIDTH || y >= WINDOW_HEIGHT) return 0;
-	
-    ubuff8 = (Uint8*) screen->pixels;
-    ubuff8 += (y * screen->pitch) + x;
+
+    ubuff8 = (Uint8*) BlitSurface->pixels;
+    ubuff8 += (y * BlitSurface->pitch) + x;
     return *ubuff8;
 }
 
@@ -247,6 +278,16 @@ char VidDrv_Start(void)
 	lprintf("VidDrv_Start: calling SDL_Init\n");
 #ifdef __webos__
 	PDL_Init(0);
+	// Deliver raw touch events immediately rather than waiting for the system to
+	// classify them as taps or gestures (which can swallow events entirely in a
+	// non-GL PDK app).
+	PDL_SetTouchAggression(PDL_AGGRESSION_MORETOUCHES);
+	// Disable the bezel quick-launch gesture so swipes don't interrupt gameplay.
+	PDL_GesturesEnable(PDL_FALSE);
+	// webOS handles scaling itself via SDL_SoftStretch (320x240 -> 1024x768).
+	// scale2x would write with a 640-wide pitch into our 320-wide game surface.
+	options[OPT_ZOOM] = 0;
+	options[OPT_ZOOMONRESTART] = 0;
 #endif
 	if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_AUDIO) < 0)
 	{
@@ -308,29 +349,37 @@ int w,h;
 	lprintf("VidDrv_SetFullscreen(%d)\n", fs_on);
 
 #ifdef __webos__
-	// webOS: always 1024x768 fullscreen; game renders into a 320x240 off-screen surface
-	if (screen) { SDL_FreeSurface(screen); }
-	screen = SDL_SetVideoMode(WEBOS_SCREEN_W, WEBOS_SCREEN_H, 8,
-	                          SDL_HWSURFACE | SDL_HWPALETTE | SDL_FULLSCREEN);
+	// webOS: always 1024x768 fullscreen regardless of fs_on.
+	// Store fs_on in window_is_fullscreen so the gamedo_RenderScreen mismatch
+	// check doesn't fire every frame and re-grab the PDL surface (which causes
+	// the compositor to SIGSTOP the app).
+	window_is_fullscreen = fs_on;
+
 	if (!screen)
 	{
-		crash("VidDrv_SetFullscreen: Couldn't set webOS video mode: %s\n", SDL_GetError());
-		return;
+		screen = SDL_SetVideoMode(WEBOS_SCREEN_W, WEBOS_SCREEN_H, 8,
+		                          SDL_SWSURFACE | SDL_FULLSCREEN);
+		if (!screen)
+		{
+			crash("VidDrv_SetFullscreen: Couldn't set webOS video mode: %s\n", SDL_GetError());
+			return;
+		}
 	}
-	if (webos_game_surface) { SDL_FreeSurface(webos_game_surface); }
-	webos_game_surface = SDL_CreateRGBSurface(SDL_SWSURFACE,
-	                     WINDOW_WIDTH, WINDOW_HEIGHT, 8, 0, 0, 0, 0);
 	if (!webos_game_surface)
 	{
-		crash("VidDrv_SetFullscreen: Couldn't create webOS game surface\n");
-		return;
+		webos_game_surface = SDL_CreateRGBSurface(SDL_SWSURFACE,
+		                     WINDOW_WIDTH, WINDOW_HEIGHT, 8, 0, 0, 0, 0);
+		if (!webos_game_surface)
+		{
+			crash("VidDrv_SetFullscreen: Couldn't create webOS game surface\n");
+			return;
+		}
 	}
 	BlitSurface = webos_game_surface;
 	VRAMPtr = webos_game_surface->pixels;
 	window_width = WINDOW_WIDTH;
 	window_height = WINDOW_HEIGHT;
 	border_width = border_height = 0;
-	window_is_fullscreen = 1;
 	SDL_ShowCursor(SDL_DISABLE);
 	VidDrv_pal_apply();
 	lprintf("VidDrv_SetFullscreen: webOS %dx%d fullscreen, game surface %dx%d\n",
