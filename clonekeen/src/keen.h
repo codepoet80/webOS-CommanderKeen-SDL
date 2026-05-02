@@ -35,6 +35,15 @@
 #define CUSTOM_DIR		"custom/"
 // directory "special" sprites and VGASprites/VGATiles are under
 #define GFXDIR			"gfx/"
+// directory official game data (CKx files) lives in.
+// On webOS this is a runtime variable: "data/" (bundled shareware) unless the
+// user has created /media/internal/keen/, in which case that dir is used instead.
+#ifdef __webos__
+extern const char *data_dir;
+#define DATA_DIR		data_dir
+#else
+#define DATA_DIR		"data/"
+#endif
 // name of temporary file when recording a demo
 #define DEMO_TMP		"demo.tmp"
 

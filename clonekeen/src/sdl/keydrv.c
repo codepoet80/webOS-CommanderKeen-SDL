@@ -267,116 +267,189 @@ void KeyDrv_Stop(void)
 char key_g=0, key_o=0, key_d=0;
 
 #ifdef __webos__
-// Screen is 1024x768. Map touch zones to game controls.
+// D-pad + button layout on 1024x768:
 //
-//  ┌──────────────────────────────────┐
-//  │            JUMP (Ctrl)           │  y < 192
-//  ├────────┬─────────────────┬───────┤
-//  │        │                 │       │
-//  │  LEFT  │   ESC (menu)    │ RIGHT │  192 <= y <= 575
-//  │        │                 │       │
-//  ├────────┴─────────────────┴───────┤
-//  │         FIRE/POGO (Alt)          │  y > 575
-//  └──────────────────────────────────┘
-//     x<300         300-723       x>723
+//  [MENU]                              ← small rect, top-left
 //
-// Only one finger tracked at a time (SDL 1.2 limitation).
+//    ╭──────────╮        ╭──────╮
+//    │    ↑     │        │ JUMP │  ← (900,600)
+//    │  ←   →  │        ╰──────╯
+//    │    ↓     │  ╭──────╮
+//    ╰──────────╯  │ FIRE │  ← (790,680)
+//   center(120,655) ╰──────╯
+//
+// SDL 1.2 on webOS: event.button.which / event.motion.which = finger index (0-4).
+// Each finger is tracked independently; d-pad + button can be held simultaneously.
 
-#define WEBOS_JUMP_Y    192
-#define WEBOS_FIRE_Y    575
-#define WEBOS_LEFT_X    300
-#define WEBOS_RIGHT_X   723
-#define WEBOS_SPLIT_X   512   // splits top/bottom zones: left=directional, right=action
+// D-pad
+#define DPAD_CENTER_X  120
+#define DPAD_CENTER_Y  655
+#define DPAD_RADIUS    110
+#define DPAD_DEADZONE  28
+#define DPAD_SLACK     50   // extra hit radius beyond DPAD_RADIUS to keep tracking
 
-// Minimum time (ms) a key stays active after the finger lifts.
-// This decouples touch timing from the render/logic timer rates so that even a
-// fast tap registers across at least one logic frame regardless of the
-// render-vs-logic timer phase relationship. 150ms matches the PCSX-ReARMed
-// webOS port which solved the same problem on this hardware.
+// Action buttons
+#define JUMP_CENTER_X  900
+#define JUMP_CENTER_Y  600
+#define JUMP_RADIUS    60
+
+#define FIRE_CENTER_X  790
+#define FIRE_CENTER_Y  680
+#define FIRE_RADIUS    60
+
+// Menu / ESC button
+#define MENU_BTN_X     10
+#define MENU_BTN_Y     10
+#define MENU_BTN_W     100
+#define MENU_BTN_H     38
+
+// Minimum hold time (ms) so a fast tap still registers in the logic timer.
 #define WEBOS_MIN_HOLD_MS 150
 
-static int      webos_touch_key     = 0;
-static int      webos_pending_up    = 0;
-static int      webos_pending_up_key = 0;
-static Uint32   webos_key_down_time = 0;  // SDL_GetTicks() when current key went down
+#define ZONE_NONE  0
+#define ZONE_DPAD  1
+#define ZONE_JUMP  2
+#define ZONE_FIRE  3
+#define ZONE_MENU  4
 
-// Mirror a keytable key into sdl_keysdown (used by the menu system).
-// Zone → menu function:
-//   KESC  (center) = close/cancel
-//   KCTRL (top)    = navigate up
-//   KALT  (bottom) = navigate down
-//   KRIGHT (right) = confirm/select  (right arrow doubles as Enter in menus)
+#define MAX_FINGERS 5
+
+typedef struct {
+	int    zone;
+	int    dpad_h;       // KLEFT, KRIGHT, or 0
+	int    dpad_v;       // KUP, KDOWN, or 0
+	int    action_key;   // KCTRL, KALT, KESC, or 0
+	int    pending_up;
+	Uint32 key_down_time;
+} WebOSFinger;
+
+static WebOSFinger webos_fingers[MAX_FINGERS];  // zero-initialized
+
+static int webos_in_circle(int x, int y, int cx, int cy, int r)
+{
+	int dx = x - cx, dy = y - cy;
+	return dx*dx + dy*dy <= r*r;
+}
+
+// Mirror keytable keys into sdl_keysdown for menu navigation.
 static void webos_set_sdl_keysdown(int key, int state)
 {
 	switch (key) {
-		case KESC:
-			sdl_keysdown[SDLK_ESCAPE] = state;
-			break;
-		case KCTRL:
-			sdl_keysdown[SDLK_UP] = state;
-			break;
-		case KALT:
-			sdl_keysdown[SDLK_DOWN] = state;
-			break;
-		case KRIGHT:
-			sdl_keysdown[SDLK_RETURN] = state;
-			break;
-		default:
-			break;
+		case KESC:   sdl_keysdown[SDLK_ESCAPE] = state; break;
+		case KUP:    sdl_keysdown[SDLK_UP]     = state; break;
+		case KDOWN:  sdl_keysdown[SDLK_DOWN]   = state; break;
+		case KRIGHT: sdl_keysdown[SDLK_RETURN] = state; break;
+		case KCTRL:  sdl_keysdown[SDLK_RETURN] = state; break;
+		default: break;
 	}
 }
 
-static void webos_set_touch_key(int key, int state)
+// Return 1 if any finger other than fi is actively holding key k.
+static int webos_any_holding(int fi, int k)
 {
-	if (webos_touch_key && webos_touch_key != key) {
-		keytable[webos_touch_key] = 0;
-		webos_set_sdl_keysdown(webos_touch_key, 0);
+	int i;
+	if (!k) return 0;
+	for (i = 0; i < MAX_FINGERS; i++) {
+		if (i == fi) continue;
+		if (webos_fingers[i].dpad_h    == k ||
+		    webos_fingers[i].dpad_v    == k ||
+		    webos_fingers[i].action_key == k) return 1;
 	}
-	webos_touch_key = key;
-	if (key) {
-		keytable[key] = state;
-		webos_set_sdl_keysdown(key, state);
-		if (state)
-			webos_key_down_time = SDL_GetTicks();
+	return 0;
+}
+
+// Set/clear a key for finger fi, respecting other fingers still holding it.
+static void webos_finger_set_key(int fi, int key, int state)
+{
+	if (!key) return;
+	if (state) {
+		keytable[key] = 1;
+		webos_set_sdl_keysdown(key, 1);
+	} else if (!webos_any_holding(fi, key)) {
+		keytable[key] = 0;
+		webos_set_sdl_keysdown(key, 0);
 	}
 }
 
-static void webos_touch_down(int x, int y)
+static void webos_finger_release(int fi)
 {
-	int key;
-	if (y < WEBOS_JUMP_Y)
-		// Top zone split: left = look/enter-door (KUP), right = jump (KCTRL)
-		key = (x < WEBOS_SPLIT_X) ? KUP : KCTRL;
-	else if (y > WEBOS_FIRE_Y)
-		// Bottom zone split: left = duck (KDOWN), right = fire/pogo (KALT)
-		key = (x < WEBOS_SPLIT_X) ? KDOWN : KALT;
-	else if (x < WEBOS_LEFT_X)
-		key = KLEFT;
-	else if (x > WEBOS_RIGHT_X)
-		key = KRIGHT;
-	else
-		key = KESC;
-	webos_set_touch_key(key, 1);
+	WebOSFinger *f = &webos_fingers[fi];
+	webos_finger_set_key(fi, f->dpad_h,    0); f->dpad_h    = 0;
+	webos_finger_set_key(fi, f->dpad_v,    0); f->dpad_v    = 0;
+	webos_finger_set_key(fi, f->action_key, 0); f->action_key = 0;
+	f->zone       = ZONE_NONE;
+	f->pending_up = 0;
 }
 
-static void webos_touch_up(void)
+static void webos_dpad_update(int fi, int x, int y)
 {
-	// Schedule release but hold the key for at least WEBOS_MIN_HOLD_MS so that
-	// the logic timer sees the press regardless of render/logic phase alignment.
-	webos_pending_up = 1;
-	webos_pending_up_key = webos_touch_key;
-	webos_touch_key = 0;
-}
+	WebOSFinger *f = &webos_fingers[fi];
+	int dx = x - DPAD_CENTER_X;
+	int dy = y - DPAD_CENTER_Y;
+	int new_h = 0, new_v = 0;
 
-static void webos_touch_move(int x, int y)
-{
-	if (y >= WEBOS_JUMP_Y && y <= WEBOS_FIRE_Y)
-	{
-		if (x < WEBOS_LEFT_X)
-			webos_set_touch_key(KLEFT, 1);
-		else if (x > WEBOS_RIGHT_X)
-			webos_set_touch_key(KRIGHT, 1);
+	if (dx*dx + dy*dy >= DPAD_DEADZONE * DPAD_DEADZONE) {
+		if (dx < -DPAD_DEADZONE)     new_h = KLEFT;
+		else if (dx > DPAD_DEADZONE) new_h = KRIGHT;
+		if (dy < -DPAD_DEADZONE)     new_v = KUP;
+		else if (dy > DPAD_DEADZONE) new_v = KDOWN;
 	}
+	if (f->dpad_h != new_h) {
+		webos_finger_set_key(fi, f->dpad_h, 0);
+		f->dpad_h = new_h;
+		webos_finger_set_key(fi, new_h, 1);
+	}
+	if (f->dpad_v != new_v) {
+		webos_finger_set_key(fi, f->dpad_v, 0);
+		f->dpad_v = new_v;
+		webos_finger_set_key(fi, new_v, 1);
+	}
+}
+
+static void webos_touch_down(int fi, int x, int y)
+{
+	WebOSFinger *f = &webos_fingers[fi];
+	webos_finger_release(fi);  // clear any prior state for this finger slot
+	f->key_down_time = SDL_GetTicks();
+
+	if (x >= MENU_BTN_X && x <= MENU_BTN_X + MENU_BTN_W &&
+	    y >= MENU_BTN_Y && y <= MENU_BTN_Y + MENU_BTN_H) {
+		f->zone       = ZONE_MENU;
+		f->action_key = KESC;
+		webos_finger_set_key(fi, KESC, 1);
+		return;
+	}
+	if (webos_in_circle(x, y, DPAD_CENTER_X, DPAD_CENTER_Y, DPAD_RADIUS + DPAD_SLACK)) {
+		f->zone = ZONE_DPAD;
+		webos_dpad_update(fi, x, y);
+		return;
+	}
+	if (webos_in_circle(x, y, JUMP_CENTER_X, JUMP_CENTER_Y, JUMP_RADIUS + 20)) {
+		f->zone       = ZONE_JUMP;
+		f->action_key = KCTRL;
+		webos_finger_set_key(fi, KCTRL, 1);
+		return;
+	}
+	if (webos_in_circle(x, y, FIRE_CENTER_X, FIRE_CENTER_Y, FIRE_RADIUS + 20)) {
+		f->zone       = ZONE_FIRE;
+		f->action_key = KALT;
+		webos_finger_set_key(fi, KALT, 1);
+		return;
+	}
+	f->zone = ZONE_NONE;
+}
+
+static void webos_touch_up(int fi)
+{
+	webos_fingers[fi].pending_up = 1;
+}
+
+static void webos_touch_move(int fi, int x, int y)
+{
+	WebOSFinger *f = &webos_fingers[fi];
+	if (f->pending_up || f->zone != ZONE_DPAD) return;
+	if (webos_in_circle(x, y, DPAD_CENTER_X, DPAD_CENTER_Y, DPAD_RADIUS + DPAD_SLACK))
+		webos_dpad_update(fi, x, y);
 }
 #endif /* __webos__ */
 
@@ -387,13 +460,13 @@ char newState;
 SDL_Event event;
 
 #ifdef __webos__
-	if (webos_pending_up &&
-	    SDL_GetTicks() - webos_key_down_time >= WEBOS_MIN_HOLD_MS)
 	{
-		keytable[webos_pending_up_key] = 0;
-		webos_set_sdl_keysdown(webos_pending_up_key, 0);
-		webos_pending_up = 0;
-		webos_pending_up_key = 0;
+		int fi;
+		for (fi = 0; fi < MAX_FINGERS; fi++) {
+			if (webos_fingers[fi].pending_up &&
+			    SDL_GetTicks() - webos_fingers[fi].key_down_time >= WEBOS_MIN_HOLD_MS)
+				webos_finger_release(fi);
+		}
 	}
 #endif
 
@@ -439,8 +512,10 @@ prockey: ;
 				mouse_x = event.motion.x;
 				mouse_y = event.motion.y;
 #ifdef __webos__
-				if (event.motion.state & SDL_BUTTON(1))
-					webos_touch_move(event.motion.x, event.motion.y);
+				{
+					int fi = event.motion.which < MAX_FINGERS ? event.motion.which : 0;
+					webos_touch_move(fi, event.motion.x, event.motion.y);
+				}
 #endif
 				break;
 
@@ -451,7 +526,10 @@ prockey: ;
 				{
 					mouseL = 1;
 #ifdef __webos__
-					webos_touch_down(event.button.x, event.button.y);
+					{
+						int fi = event.button.which < MAX_FINGERS ? event.button.which : 0;
+						webos_touch_down(fi, event.button.x, event.button.y);
+					}
 #endif
 				}
 				else if (event.button.button==SDL_BUTTON_RIGHT)
@@ -465,7 +543,10 @@ prockey: ;
 				{
 					mouseL = 0;
 #ifdef __webos__
-					webos_touch_up();
+					{
+						int fi = event.button.which < MAX_FINGERS ? event.button.which : 0;
+						webos_touch_up(fi);
+					}
 #endif
 				}
 				else if (event.button.button==SDL_BUTTON_RIGHT)

@@ -49,6 +49,16 @@ char *sanity_ep[99] = {"ep?attr.dat", attrfile, COMESWITHCLONE,
 
 const char *kNoSharewareEpisode =
 {
+#ifdef __webos__
+	"You don't have the shareware episode!\n\n"
+	"CloneKeen requires the shareware episode\n"
+	"be installed in order to play. You can\n"
+	"download it for free from id Software.\n"
+	"\n"
+	"Copy the episode data files to:\n"
+	"  /media/internal/keen/\n"
+	"on your TouchPad, then restart."
+#else
 	"You don't have the shareware episode!\n\n"
 	"CloneKeen requires the shareware episode\n"
 	"be installed in order to play. You can\n"
@@ -58,14 +68,22 @@ const char *kNoSharewareEpisode =
 	"Please unzip the shareware episode and\n"
 	"place it into the \"data\" subdirectory,\n"
 	"and then restart the game."
+#endif
 };
 
 const char *kFromOriginal =
 {
+#ifdef __webos__
+	"This is a data file from the original game.\n"
+	"Copy the original game files to:\n"
+	"  /media/internal/keen/\n"
+	"on your TouchPad, then restart."
+#else
 	"This is a data file from the original game.\n"
 	"Please put a copy of the original game files\n"
 	"into the 'data' subdirectory beneath your\n"
 	"CloneKeen installation, and restart."
+#endif
 };
 
 const char *kFromCloneKeen =
@@ -96,6 +114,14 @@ int ep;
 	// check whether each episode is present
 	for(ep=1;ep<=3;ep++)
 	{
+#ifdef __webos__
+		if (ep > 1)
+		{
+			episode_available[ep] = 1;
+			lprintf("  * Assuming episode %d available (webOS).\n", ep);
+			continue;
+		}
+#endif
 		episode_available[ep] = (1 - run_sanity((void *)sanity_ep, ep));
 		if (episode_available[ep])
 		{
@@ -139,7 +165,7 @@ char missing = 0;
 		
 		wheretogetit = (char)(*list)[i+2];
 		if (wheretogetit)
-			sprintf(fullfname, "data/%s", fname);
+			sprintf(fullfname, "%s%s", DATA_DIR, fname);
 		else
 			strcpy(fullfname, fname);
 		

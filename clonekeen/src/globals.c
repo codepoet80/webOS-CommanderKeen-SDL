@@ -58,3 +58,7 @@ uchar numplayers;
 char crashflag;
 int NessieObjectHandle;
 char caitlin_isnt_awesome = 0;
+
+#ifdef __webos__
+const char *data_dir = "data/";
+#endif

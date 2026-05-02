@@ -8,6 +8,9 @@
 
 #include "keen.h"
 #include "misc.fdh"
+#ifdef __webos__
+#include <sys/stat.h>
+#endif
 
 #define TWIRL_SPEED        30
 
@@ -132,6 +135,19 @@ char episode_loaded = -1;
 char episode_loaded_from_path[MAXPATHLEN] = {0};
 char Load_Episode(uchar episode)
 {
+#ifdef __webos__
+	{
+		struct stat st;
+		int sr = stat("/media/internal/keen", &st);
+		lprintf("webOS Load_Episode(%d): stat('/media/internal/keen')=%d is_dir=%d\n",
+		        episode, sr, (sr==0) ? S_ISDIR(st.st_mode) : 0);
+		if (episode > 1 && sr == 0 && S_ISDIR(st.st_mode))
+			data_dir = "/media/internal/keen/";
+		else
+			data_dir = "data/";
+		lprintf("webOS: data_dir='%s'\n", data_dir);
+	}
+#endif
 	if (episode_loaded != episode || \
 		strcmp(episode_loaded_from_path, levelcontrol.custom_episode_path))
 	{

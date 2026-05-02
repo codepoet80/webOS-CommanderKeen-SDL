@@ -1,16 +1,32 @@
 
 #include <unistd.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <dirent.h>
 
 /*
 void c------------------------------() {}
 */
 
+// data_dir is defined in globals.c and defaults to "data/" (bundled shareware).
+// If the user has created /media/internal/keen/, switch to that so they can
+// add ep2/ep3 data files there without needing to touch the read-only app dir.
+extern "C" { extern const char *data_dir; }
+
+static void webos_init_data_dir(void)
+{
+	struct stat st;
+	if (stat("/media/internal/keen", &st) == 0 && S_ISDIR(st.st_mode))
+		data_dir = "/media/internal/keen/";
+	// else keep "data/" default for bundled shareware
+}
+
 int main(int argc, char *argv[])
 {
+	webos_init_data_dir();
 	return KeenMain(argc, argv);
 }
 

@@ -85,7 +85,7 @@ int x,y,by;
 	map_unregister_all_animtiles();
 	map.xsize = map.ysize = 16;		// dummy size so gameloop_initialize doesn't bork
 	
-	sprintf(fname, "data/%s", filename);
+	sprintf(fname, "%s%s", DATA_DIR, filename);
 	fp = fileopen(fname, "rb");
 	if (!fp)
 	{

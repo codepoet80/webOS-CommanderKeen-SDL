@@ -101,7 +101,11 @@ uchar *cant_play_ep_menu[MAXM] = {23,74,  255, NULL, NULL, NULL, NULL,
 					"", MNU_SEPERATOR, NULL, 0,
 					"Obtain the original version of", MNU_SEPERATOR, NULL, 0,
 					"this episode, copy all it's", MNU_SEPERATOR, NULL, 0,
+#ifdef __webos__
+					"files to /media/internal/keen,", MNU_SEPERATOR, NULL, 0,
+#else
 					"files into the \"data\" subdir,", MNU_SEPERATOR, NULL, 0,
+#endif
 					"and restart CloneKeen.", MNU_SEPERATOR, NULL, 0,
 					"", MNU_SEPERATOR, NULL, 0,
 					"Aw, shucks, ok.", MNU_SWITCHMENU, selectep_menu, 0,
@@ -115,7 +119,11 @@ uchar *cant_play_usermap_menu[MAXM] = {23,74,  255, NULL, NULL, NULL, NULL,
 					"", MNU_SEPERATOR, NULL, 0,
 					"Obtain the original version of", MNU_SEPERATOR, NULL, 0,
 					"the episode, copy all it's", MNU_SEPERATOR, NULL, 0,
+#ifdef __webos__
+					"files to /media/internal/keen,", MNU_SEPERATOR, NULL, 0,
+#else
 					"files into the \"data\" subdir,", MNU_SEPERATOR, NULL, 0,
+#endif
 					"and restart CloneKeen.", MNU_SEPERATOR, NULL, 0,
 					"", MNU_SEPERATOR, NULL, 0,
 					"Aw, shucks, ok.", MNU_SWITCHMENU, main_menu, 0,

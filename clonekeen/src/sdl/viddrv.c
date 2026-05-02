@@ -26,35 +26,132 @@ SDL_Surface *BlitSurface = NULL;
 static SDL_Surface *webos_game_surface = NULL;
 #define WEBOS_SCREEN_W  1024
 #define WEBOS_SCREEN_H  768
-// Touch zone boundaries (must match keydrv.c)
-#define WEBOS_JUMP_Y    192
-#define WEBOS_FIRE_Y    575
-#define WEBOS_LEFT_X    300
-#define WEBOS_RIGHT_X   723
+
+// Control positions — must match keydrv.c
+#define DPAD_CENTER_X  120
+#define DPAD_CENTER_Y  655
+#define DPAD_RADIUS    110
+#define JUMP_CENTER_X  900
+#define JUMP_CENTER_Y  600
+#define JUMP_RADIUS    60
+#define FIRE_CENTER_X  790
+#define FIRE_CENTER_Y  680
+#define FIRE_RADIUS    60
+#define MENU_BTN_X     10
+#define MENU_BTN_Y     10
+#define MENU_BTN_W     100
+#define MENU_BTN_H     38
+
+static int vid_isqrt(int n)
+{
+    int x, y;
+    if (n <= 0) return 0;
+    x = n; y = (x + 1) / 2;
+    while (y < x) { x = y; y = (x + n / x) / 2; }
+    return x;
+}
+
+// Draw a circle ring (outline) lw pixels wide onto surface s.
+static void draw_ring(SDL_Surface *s, int cx, int cy, int r, int lw, Uint8 c)
+{
+    int ri = r - lw;
+    int dy;
+    SDL_Rect rect;
+    for (dy = -r; dy <= r; dy++) {
+        int ro2 = r * r - dy * dy;
+        if (ro2 < 0) continue;
+        int xo = vid_isqrt(ro2);
+        int xi = (ri > 0 && dy * dy < ri * ri) ? vid_isqrt(ri * ri - dy * dy) : 0;
+        int row = cy + dy;
+        rect.y = row; rect.h = 1;
+        if (xi <= 0) {
+            rect.x = cx - xo; rect.w = xo * 2 + 1;
+            SDL_FillRect(s, &rect, c);
+        } else {
+            rect.x = cx - xo; rect.w = xo - xi;
+            if (rect.w > 0) SDL_FillRect(s, &rect, c);
+            rect.x = cx + xi + 1; rect.w = xo - xi;
+            if (rect.w > 0) SDL_FillRect(s, &rect, c);
+        }
+    }
+}
+
+// 5×7 pixel bitmaps for M, E, N, U.
+// Bit 4 = leftmost column, bit 0 = rightmost.
+static const Uint8 glyph_M[7] = { 0x11, 0x1B, 0x15, 0x11, 0x11, 0x11, 0x11 };
+static const Uint8 glyph_E[7] = { 0x1F, 0x10, 0x1E, 0x10, 0x10, 0x10, 0x1F };
+static const Uint8 glyph_N[7] = { 0x11, 0x19, 0x15, 0x13, 0x11, 0x11, 0x11 };
+static const Uint8 glyph_U[7] = { 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0E };
+
+static void draw_glyph(SDL_Surface *s, int x, int y, const Uint8 *g, int sc, Uint8 c)
+{
+    int row, col;
+    SDL_Rect r;
+    r.w = sc; r.h = sc;
+    for (row = 0; row < 7; row++) {
+        for (col = 0; col < 5; col++) {
+            if (g[row] & (0x10 >> col)) {
+                r.x = x + col * sc;
+                r.y = y + row * sc;
+                SDL_FillRect(s, &r, c);
+            }
+        }
+    }
+}
 
 static void webos_draw_control_overlay(void)
 {
+    Uint8 col = 15;  // EGA bright white
+    Uint8 shad = 0;  // EGA black
+    int lw = 4;
+    int sh = 2;      // shadow offset in pixels
     SDL_Rect r;
-    Uint8 white = 15;  // EGA bright white
-    int lw = 3;
 
-    // Horizontal dividers
-    r.x = 0; r.y = WEBOS_JUMP_Y; r.w = WEBOS_SCREEN_W; r.h = lw;
-    SDL_FillRect(screen, &r, white);
-    r.x = 0; r.y = WEBOS_FIRE_Y; r.w = WEBOS_SCREEN_W; r.h = lw;
-    SDL_FillRect(screen, &r, white);
+    // ── D-pad: shadow then white ──────────────────────────────────────────────
+    draw_ring(screen, DPAD_CENTER_X + sh, DPAD_CENTER_Y + sh, DPAD_RADIUS, lw, shad);
+    r.x = DPAD_CENTER_X - DPAD_RADIUS + lw + sh;
+    r.y = DPAD_CENTER_Y - lw / 2 + sh;
+    r.w = (DPAD_RADIUS - lw) * 2;
+    r.h = lw;
+    SDL_FillRect(screen, &r, shad);
+    r.x = DPAD_CENTER_X - lw / 2 + sh;
+    r.y = DPAD_CENTER_Y - DPAD_RADIUS + lw + sh;
+    r.w = lw;
+    r.h = (DPAD_RADIUS - lw) * 2;
+    SDL_FillRect(screen, &r, shad);
 
-    // Vertical dividers in mid zone: LEFT | MENU | RIGHT
-    r.x = WEBOS_LEFT_X;  r.y = WEBOS_JUMP_Y; r.w = lw; r.h = WEBOS_FIRE_Y - WEBOS_JUMP_Y;
-    SDL_FillRect(screen, &r, white);
-    r.x = WEBOS_RIGHT_X; r.y = WEBOS_JUMP_Y; r.w = lw; r.h = WEBOS_FIRE_Y - WEBOS_JUMP_Y;
-    SDL_FillRect(screen, &r, white);
+    draw_ring(screen, DPAD_CENTER_X, DPAD_CENTER_Y, DPAD_RADIUS, lw, col);
+    r.x = DPAD_CENTER_X - DPAD_RADIUS + lw;
+    r.y = DPAD_CENTER_Y - lw / 2;
+    r.w = (DPAD_RADIUS - lw) * 2;
+    r.h = lw;
+    SDL_FillRect(screen, &r, col);
+    r.x = DPAD_CENTER_X - lw / 2;
+    r.y = DPAD_CENTER_Y - DPAD_RADIUS + lw;
+    r.w = lw;
+    r.h = (DPAD_RADIUS - lw) * 2;
+    SDL_FillRect(screen, &r, col);
 
-    // Vertical midpoint dividers in top and bottom zones: left=directional, right=action
-    r.x = WEBOS_SCREEN_W/2; r.y = 0;             r.w = lw; r.h = WEBOS_JUMP_Y;
-    SDL_FillRect(screen, &r, white);
-    r.x = WEBOS_SCREEN_W/2; r.y = WEBOS_FIRE_Y;  r.w = lw; r.h = WEBOS_SCREEN_H - WEBOS_FIRE_Y;
-    SDL_FillRect(screen, &r, white);
+    // ── Action buttons: shadow then white ────────────────────────────────────
+    draw_ring(screen, JUMP_CENTER_X + sh, JUMP_CENTER_Y + sh, JUMP_RADIUS, lw, shad);
+    draw_ring(screen, FIRE_CENTER_X + sh, FIRE_CENTER_Y + sh, FIRE_RADIUS, lw, shad);
+    draw_ring(screen, JUMP_CENTER_X, JUMP_CENTER_Y, JUMP_RADIUS, lw, col);
+    draw_ring(screen, FIRE_CENTER_X, FIRE_CENTER_Y, FIRE_RADIUS, lw, col);
+
+    // ── Menu / ESC button: white rect with "MENU" in black pixel-art text ────
+    r.x = MENU_BTN_X; r.y = MENU_BTN_Y; r.w = MENU_BTN_W; r.h = MENU_BTN_H;
+    SDL_FillRect(screen, &r, col);
+    {
+        int sc = 3;
+        int char_w = 5 * sc + sc;
+        int text_w = 4 * 5 * sc + 3 * sc;
+        int tx = MENU_BTN_X + (MENU_BTN_W - text_w) / 2;
+        int ty = MENU_BTN_Y + (MENU_BTN_H - 7 * sc) / 2;
+        draw_glyph(screen, tx,              ty, glyph_M, sc, shad);
+        draw_glyph(screen, tx + char_w,     ty, glyph_E, sc, shad);
+        draw_glyph(screen, tx + char_w * 2, ty, glyph_N, sc, shad);
+        draw_glyph(screen, tx + char_w * 3, ty, glyph_U, sc, shad);
+    }
 }
 #endif
 

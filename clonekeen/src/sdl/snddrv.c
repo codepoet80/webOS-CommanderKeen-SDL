@@ -72,7 +72,7 @@ char load_sounds(uchar episode)
 int ok;
 char soundfile[80];
 
-  sprintf(soundfile, "data/SOUNDS.CK%c", episode + '0');
+  sprintf(soundfile, "%sSOUNDS.CK%c", DATA_DIR, episode + '0');
   lprintf("load_sounds(): loading '%s'...\n", soundfile);
 
   ok  = sound_load(soundfile, "KEENWALKSND", SOUND_KEEN_WALK);

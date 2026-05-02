@@ -9,3 +9,6 @@ clonekeen/build/webos/webos-pkg/debian-binary
 
 # Extracted game data (not redistributable)
 clonekeen/gamedata-extracted/
+
+# Commercial game data
+keen-data

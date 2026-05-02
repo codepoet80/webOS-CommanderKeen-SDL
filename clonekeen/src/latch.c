@@ -65,7 +65,7 @@ unsigned long BitmapTableRAMSize;
 char buf[12];
 int i,j,k;
 
-    sprintf(fname, "data/EGAHEAD.CK%c", episode + '0');
+    sprintf(fname, "%sEGAHEAD.CK%c", DATA_DIR, episode + '0');
  
     headfile = fileopen(fname, "rb");
     if (!headfile)
@@ -194,7 +194,7 @@ int x,y,t,b,c,p;
 char *bmdataptr;
 unsigned long RawDataSize;
 
-    sprintf(fname, "data/EGALATCH.CK%c", episode + '0');
+    sprintf(fname, "%sEGALATCH.CK%c", DATA_DIR, episode + '0');
  
     lprintf("latch_loadlatch(): Opening file '%s'.\n", fname);
 
@@ -385,7 +385,7 @@ char fname[80];
 int x,y,s,c,p;
 unsigned long RawDataSize;
 
-    sprintf(fname, "data/EGASPRIT.CK%c", episode + '0');
+    sprintf(fname, "%sEGASPRIT.CK%c", DATA_DIR, episode + '0');
     lprintf("latch_loadsprites(): Opening file '%s'.\n", fname);
 	spritfile = fileopen(fname, "rb");
 	if (!spritfile)

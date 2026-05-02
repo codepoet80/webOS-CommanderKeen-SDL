@@ -573,7 +573,7 @@ char loadlevel(int levelno)
 {
 char mapname[100];
 
-	sprintf(mapname, "data/LEVEL%02d.CK%c", levelno, levelcontrol.episode + '0');
+	sprintf(mapname, "%sLEVEL%02d.CK%c", DATA_DIR, levelno, levelcontrol.episode + '0');
 	if (loadmap(mapname)) return 1;
 	
 	if (levelcontrol.custom_episode_path[0]==0)

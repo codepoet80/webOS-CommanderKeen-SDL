@@ -6,7 +6,7 @@ set -e
 
 PKGDIR="webos-pkg"
 APPID="com.cmdrkeen.game"
-VERSION="1.0.0"
+VERSION=$(grep '"version"' "$PKGDIR/appinfo.json" | sed 's/.*"version": *"\([^"]*\)".*/\1/')
 APPDIR="$PKGDIR/usr/palm/applications/$APPID"
 OUTFILE="${APPID}_${VERSION}_armv7.ipk"
 BINARY="fbuild/webos/clonekeen"
